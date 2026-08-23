@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Validate every cask in this tap.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+# Fail closed, never skip
+MISSING=""
+for tool in brew ruby shellcheck yamllint; do
+  command -v "$tool" >/dev/null 2>&1 || MISSING="$MISSING $tool"
+done
+if [ -n "$MISSING" ]; then
+  echo "lint: required tools not installed:$MISSING" >&2
+  echo "lint: install with: brew install$MISSING" >&2
+  exit 1
+fi
+
+TAP_NAME="case/taplint"
+TAP_DIR="$(brew --repository)/Library/Taps/case/homebrew-taplint"
+
+# Symlinked, not `brew tap`: tap clones, so it would audit the last commit
+# rather than the working tree. Cleanup removes only this run's own link.
+TAP_LINKED=""
+cleanup() {
+  [ -n "$TAP_LINKED" ] || return 0
+  [ "$(readlink "$TAP_DIR" 2>/dev/null)" = "$ROOT" ] && rm -f "$TAP_DIR"
+  return 0
+}
+trap cleanup EXIT
+
+if [ -e "$TAP_DIR" ] || [ -L "$TAP_DIR" ]; then
+  echo "lint: $TAP_DIR already exists; refusing to clobber it" >&2
+  echo "lint: another lint run may be in progress, or a stale link needs removing" >&2
+  exit 1
+fi
+
+# Not `mapfile`: that is bash 4+, and macOS and CI runners ship bash 3.2.
+CASKS=()
+while IFS= read -r cask; do
+  CASKS+=("$cask")
+done < <(find Casks -name '*.rb' -type f | sort)
+if [ "${#CASKS[@]}" -eq 0 ]; then
+  echo "lint: no casks found under Casks/" >&2
+  exit 1
+fi
+
+echo "==> ruby -c (${#CASKS[@]} casks)"
+for cask in "${CASKS[@]}"; do
+  ruby -c "$cask" >/dev/null || { echo "lint: syntax error in $cask" >&2; exit 1; }
+done
+
+echo "==> brew style"
+brew style "${CASKS[@]}"
+
+echo "==> brew audit --cask --strict --tap=$TAP_NAME"
+mkdir -p "$(dirname "$TAP_DIR")"
+ln -s "$ROOT" "$TAP_DIR"
+TAP_LINKED=1
+brew audit --cask --strict --tap="$TAP_NAME"
+
+echo "==> shellcheck"
+shellcheck bin/lint
+
+echo "==> yamllint"
+yamllint .
+
+echo "lint: ok"

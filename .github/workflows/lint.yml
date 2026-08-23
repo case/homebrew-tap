@@ -1,0 +1,43 @@
+---
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    # macos-latest, matching Homebrew's own cask CI.
+    runs-on: macos-latest
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@8f3d1ec8a696b3b9d9a6c3696b6c73033cab69e4  # 2026.08.14.1
+        with:
+          core: false
+          cask: true
+          # Empty, not the default ${{ github.token }}: brew audit executes
+          # cask Ruby, and on a pull_request that Ruby comes from the PR.
+          brew-gh-api-token: ""
+
+      - name: Install lint tools
+        run: brew install shellcheck yamllint
+
+      - name: Run bin/lint
+        run: ./bin/lint
