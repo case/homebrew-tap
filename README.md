@@ -25,6 +25,16 @@ tap "case/tap", trusted: { cask: "font-case-office-code-pro" }
 cask "case/tap/font-case-office-code-pro"
 ```
 
+### macOS and Linux
+
+| Platform | Fonts land in                                          |
+| -------- | ------------------------------------------------------ |
+| macOS    | `~/Library/Fonts`                                      |
+| Linux    | `$XDG_DATA_HOME/fonts`, usually `~/.local/share/fonts` |
+
+Homebrew does not refresh the font cache itself. On Linux, run `fc-cache -f` if
+applications do not pick the fonts up.
+
 ## Why Office Code Pro is here and not in homebrew-cask
 
 The upstream repository `nathco/Office-Code-Pro` was deleted from GitHub around
