@@ -7,7 +7,7 @@ cd "$ROOT"
 
 # Fail closed, never skip
 MISSING=""
-for tool in brew ruby shellcheck yamllint; do
+for tool in brew shellcheck yamllint; do
   command -v "$tool" >/dev/null 2>&1 || MISSING="$MISSING $tool"
 done
 if [ -n "$MISSING" ]; then
@@ -22,7 +22,9 @@ TAP_DIR="$(brew --repository)/Library/Taps/case/homebrew-taplint"
 # Symlinked, not `brew tap`: tap clones, so it would audit the last commit
 # rather than the working tree. Cleanup removes only this run's own link.
 TAP_LINKED=""
+TRUST_HOME=""
 cleanup() {
+  [ -z "$TRUST_HOME" ] || rm -rf "$TRUST_HOME"
   [ -n "$TAP_LINKED" ] || return 0
   [ "$(readlink "$TAP_DIR" 2>/dev/null)" = "$ROOT" ] && rm -f "$TAP_DIR"
   return 0
@@ -45,11 +47,6 @@ if [ "${#CASKS[@]}" -eq 0 ]; then
   exit 1
 fi
 
-echo "==> ruby -c (${#CASKS[@]} casks)"
-for cask in "${CASKS[@]}"; do
-  ruby -c "$cask" >/dev/null || { echo "lint: syntax error in $cask" >&2; exit 1; }
-done
-
 echo "==> brew style"
 brew style "${CASKS[@]}"
 
@@ -57,7 +54,11 @@ echo "==> brew audit --cask --strict --tap=$TAP_NAME"
 mkdir -p "$(dirname "$TAP_DIR")"
 ln -s "$ROOT" "$TAP_DIR"
 TAP_LINKED=1
-brew audit --cask --strict --tap="$TAP_NAME"
+# Homebrew refuses to load casks from an untrusted tap. Trust it in a
+# scratch config home, so the user's own trust store is never touched.
+TRUST_HOME="$(mktemp -d)"
+XDG_CONFIG_HOME="$TRUST_HOME" brew trust --tap "$TAP_NAME"
+XDG_CONFIG_HOME="$TRUST_HOME" brew audit --cask --strict --tap="$TAP_NAME"
 
 echo "==> shellcheck"
 shellcheck bin/lint
