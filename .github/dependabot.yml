@@ -2,11 +2,9 @@
 version: 2
 
 updates:
-  # Actions are pinned to commit SHAs; Dependabot reads the trailing
-  # `# vX.Y.Z` comment to learn which version each SHA represents.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     cooldown:
-      default-days: 14
+      default-days: 7
