@@ -4,9 +4,9 @@ A personal [Homebrew tap](https://docs.brew.sh/Taps).
 
 ## Casks
 
-| Cask                        | Version | What it is                                                    |
-| --------------------------- | ------- | ------------------------------------------------------------- |
-| `font-case-office-code-pro` | 1.004   | Office Code Pro, a monospaced coding font (SIL OFL v1.1)      |
+| Cask                        | What it is                                               |
+| --------------------------- | -------------------------------------------------------- |
+| `font-case-office-code-pro` | Office Code Pro, a monospaced coding font (SIL OFL v1.1) |
 
 ## Install
 
@@ -65,14 +65,13 @@ per the SIL Open Font License v1.1 by Nathan Rutzky and Adobe Systems.
 
 ## Development
 
-`bin/lint` is the gate. CI runs the same script, so a clean local run means a
-clean CI run.
+`bin/lint` is the gate. CI runs the same script.
 
 ```
 ./bin/lint
 ```
 
-It runs `ruby -c`, `brew style`, and `brew audit --cask` over every cask, plus
+It runs `brew style` and `brew audit --cask` over every cask, plus
 `shellcheck` and `yamllint`. It audits the **working tree**, not the last
 commit: it symlinks this directory into Homebrew's tap directory rather than
 using `brew tap`, which clones.
@@ -85,44 +84,18 @@ curl -sL https://github.com/case/font-office-code-pro-mirror/releases/download/1
   | shasum -a 256
 ```
 
+It is not fully offline, though. `brew style` and `brew audit` call
+`install_bundler_gems!`, which runs `bundle install` against rubygems.org when
+Homebrew's style gems are missing or stale, so a fresh machine or a rubygems
+outage can fail `bin/lint` on a network error.
+
 GitHub Actions are pinned to commit SHAs with a trailing `# vX.Y.Z` comment.
 Dependabot reads that comment and opens weekly bump PRs; see
 [.github/dependabot.yml](.github/dependabot.yml).
 
-It is not fully offline, though. `brew style` and `brew audit` call
-`install_bundler_gems!`, which runs `bundle install` against rubygems.org when
-Homebrew's style gems are missing or stale, so a fresh machine or a rubygems
-outage can fail the pre-commit hook on a network error.
-
 > [!WARNING]
 > Never delete and re-upload a release asset. GitHub will not reproduce the
 > original bytes, the pinned `sha256` stops matching, and every install fails.
-
-## Moving off GitHub
-
-**Installing** is host-agnostic. Homebrew's two-argument tap form clones from
-any URL git understands, and it normalises the local directory name itself, so
-a future host need not use the `homebrew-` prefix:
-
-```
-brew tap case/tap https://git.example.com/case/homebrew-tap.git
-```
-
-Two lines in the cask carry the only host coupling on that path, `url` and
-`homepage`. The `sha256` is a claim about bytes, not about a host, so re-host
-the identical tarball anywhere and only `url` changes.
-
-**Maintenance** does not move for free. These are GitHub-specific and need a
-replacement on another host:
-
-| File                         | What it does          | On another host                      |
-| ---------------------------- | --------------------- | ------------------------------------ |
-| `.github/workflows/lint.yml` | Runs `bin/lint` in CI | Rewrite as that platform's CI config |
-| `.github/dependabot.yml`     | Bumps the action pins | Replace with Renovate or drop        |
-
-`bin/lint` itself is portable and is all the CI config calls, so porting CI is
-a config rewrite rather than a logic rewrite. Both action pins become moot,
-since the actions only exist on GitHub.
 
 ## License
 
